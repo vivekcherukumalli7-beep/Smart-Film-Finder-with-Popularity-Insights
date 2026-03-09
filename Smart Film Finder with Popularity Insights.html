@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineFinder</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color: white;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+body.light {
+    background: #f8fafc;
+    color: black;
+}
+.desktop {
+    width: 90%;
+    
+    max-width: 1200px;
+    height: 80vh;
+    display: flex;
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    overflow: hidden;
+}
+.sidebar {
+    width: 30%;
+    padding: 25px;
+    background: rgba(0,0,0,0.35);
+}
+.main {
+    width: 70%;
+    padding: 30px;
+    overflow-y: auto;
+}
+input,button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    margin-bottom: 10px;
+}
+input {
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+button {
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+}
+button:hover { background:#2563eb; }
+
+.movie-card {
+    display: flex;
+    gap: 25px;
+    animation: fade 0.4s ease;
+}
+.movie-card img {
+    width: 260px;
+    border-radius: 12px;
+}
+.rating {
+    font-weight: bold;
+    margin: 8px 0;
+}
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: #22c55e;
+    margin: 6px 0;
+}
+.plot {
+    background: rgba(255,255,255,0.1);
+    padding: 12px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+.imdb-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 18px;
+    background: #fbbf24;
+    color: black;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+}
+.favorite-btn {
+    background:#22c55e;
+    margin-top: 10px;
+}
+.loader {
+    width: 60%;
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    margin: 20px auto;
+    overflow: hidden;
+}
+.loader::after {
+    content:"";
+    width:40%;
+    height:100%;
+    background:#3b82f6;
+    display:block;
+    animation:load 1s infinite;
+}
+@keyframes load {
+    from{margin-left:-40%;}
+    to{margin-left:100%;}
+}
+@keyframes fade {
+    from {opacity:0; transform:translateY(10px);}
+    to {opacity:1; transform:translateY(0);}
+}
+</style>
+</head>
+
+<body>
+
+<div class="desktop">
+
+<div class="sidebar">
+    <h2>🎬 CineFinder</h2>
+    <input id="movieInput" placeholder="Movie title">
+    <button onclick="searchMovie()">Search</button>
+    <button onclick="randomMovie()">🎲 Surprise Me</button>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+
+    <h4>Favorites ⭐</h4>
+    <div id="favorites"></div>
+</div>
+
+<div class="main" id="result">
+    <p style="opacity:0.6;">Search a movie to explore details</p>
+</div>
+
+</div>
+
+<script>
+const apiKey = "43675f8f";
+
+/* ---------- IMDb FEATURES ---------- */
+function imdbBadge(r){
+    if(r >= 8) return "🏆 IMDb Hit Movie";
+    if(r >= 6) return "👍 IMDb Average Movie";
+    return "⚠️ IMDb Low Rated Movie";
+}
+function popularityFromVotes(v){
+    if(!v || v === "N/A") return "Unknown";
+    const n = parseInt(v.replace(/,/g,""));
+    if(n > 1000000) return "🔥 Very Popular";
+    if(n > 300000) return "⭐ Popular";
+    return "📉 Less Popular";
+}
+
+/* ---------- SMART FEATURES ---------- */
+function movieDecade(y){ return Math.floor(y/10)*10 + "s"; }
+function finalVerdict(r,p){
+    if(r>=8 && p>=80) return "✅ Highly Recommended";
+    if(r>=6) return "👍 Good Choice";
+    return "⚠️ Watch if curious";
+}
+
+/* ---------- CORE ---------- */
+function toggleTheme(){
+    document.body.classList.toggle("light");
+}
+
+async function searchMovie(title=null){
+    const movie = title || movieInput.value;
+    if(!movie) return;
+
+    result.innerHTML = "<div class='loader'></div>";
+
+    try{
+        const res = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(movie)}&apikey=${apiKey}`);
+        const data = await res.json();
+
+        if(data.Response === "True"){
+            const popularity = Math.round(data.imdbRating * 10);
+
+            result.innerHTML = `
+            <div class="movie-card">
+                <img src="${data.Poster !== "N/A" ? data.Poster : "https://via.placeholder.com/300x450"}">
+                <div>
+                    <h2>${data.Title}</h2>
+
+                    <div class="rating">⭐ IMDb Rating: ${data.imdbRating}/10</div>
+                    <div class="badge">${imdbBadge(data.imdbRating)}</div>
+
+                    <p><b>IMDb Votes:</b> ${data.imdbVotes}</p>
+                    <p><b>Popularity:</b> ${popularityFromVotes(data.imdbVotes)}</p>
+                    <p><b>Metascore:</b> ${data.Metascore}</p>
+                    <p><b>Awards:</b> ${data.Awards}</p>
+                    <p><b>Box Office:</b> ${data.BoxOffice || "N/A"}</p>
+
+                    <p><b>Genre:</b> ${data.Genre}</p>
+                    <p><b>Era:</b> ${movieDecade(data.Year)}</p>
+                    <p><b>Final Verdict:</b> ${finalVerdict(data.imdbRating,popularity)}</p>
+
+                    <p class="plot"><b>Plot:</b><br>${data.Plot}</p>
+
+                    <button class="favorite-btn" onclick="addFavorite('${data.Title}')">
+                        ⭐ Add to Favorites
+                    </button><br>
+
+                    <a class="imdb-btn" target="_blank"
+                       href="https://www.imdb.com/title/${data.imdbID}">
+                       🎬 View on IMDb
+                    </a>
+                </div>
+            </div>`;
+        } else {
+            result.innerHTML = "<p style='color:red;'>Movie not found</p>";
+        }
+    } catch {
+        result.innerHTML = "<p>Error fetching data</p>";
+    }
+}
+
+/* ---------- RANDOM ---------- */
+function randomMovie(){
+    const list=["Inception","Titanic","Joker","Avatar","Interstellar"];
+    searchMovie(list[Math.floor(Math.random()*list.length)]);
+}
+
+/* ---------- FAVORITES ---------- */
+function addFavorite(title){
+    let f = JSON.parse(localStorage.getItem("favorites")) || [];
+    if(!f.includes(title)){
+        f.push(title);
+        localStorage.setItem("favorites",JSON.stringify(f));
+        loadFavorites();
+    }
+}
+function loadFavorites(){
+    const f = JSON.parse(localStorage.getItem("favorites")) || [];
+    favorites.innerHTML = f.map(m => `<p onclick="searchMovie('${m}')">⭐ ${m}</p>`).join("");
+}
+loadFavorites();
+</script>
+
+</body>
+</html>
